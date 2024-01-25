@@ -1369,3 +1369,60 @@ class SessionHost:
         """
 
         return Direct(self.session_data)
+    
+    def getOnBatchComments(self, codePost: str, postId, __session__: requests.Session | None = None, min_id = '') -> str:
+        uid = postId.replace(" ", "")
+
+        request_headers = {
+            "accept": "*/*",
+            "accept-language": "en-US,en;q=0.9",
+            "sec-ch-prefers-color-scheme": self.preferred_color_scheme,
+            "sec-ch-ua": self.user_agent,
+            "sec-ch-ua-full-version-list": self.user_agent,
+            "sec-ch-ua-mobile": "?0",
+            "sec-ch-ua-platform": "\"Windows\"",
+            "sec-ch-ua-platform-version": "\"15.0.0\"",
+            "sec-fetch-dest": "empty",
+            "sec-fetch-mode": "cors",
+            "sec-fetch-site": "same-origin",
+            "viewport-width": "1475",
+            "x-asbd-id": "129477",
+            "x-csrftoken": self.csrf_token,
+            "x-ig-app-id": self.insta_app_id,
+            "x-ig-www-claim": self.x_ig_www_claim,
+            "x-requested-with": "XMLHttpRequest",
+            "Referer": f"https://www.instagram.com/p/{codePost}/?img_index=1",
+            "Referrer-Policy": "strict-origin-when-cross-origin"
+        }
+
+        try:
+            session: requests.Session = __session__
+            if __session__ is None: session: requests.Session = self.request_session
+
+            if min_id != '': min_id = f"?min_id={min_id}"
+
+            http_response = session.get(f"https://i.instagram.com/api/v1/media/{uid}/comments/{min_id}", headers=request_headers)
+            response_json = http_response.json()
+
+            return response_json
+
+        except JSONDecodeError:
+            raise NetworkError("HTTP Response is not a valid JSON.")
+
+    def getComments(self, code, postId, number = 0) -> str :
+        comments = []
+
+        minId = ""
+        while (minId != None) and (number == 0 or len(comments) < number):
+            try:
+                result = self.getOnBatchComments(code, postId, __session__=self.request_session, min_id=minId)
+
+                #Cast to comment 
+                minId = result.get('next_min_id')
+                if result.get('comments') != None:
+                    comments.extend(result.get('comments'))
+            except Exception as e:
+                print(e)
+                return comments
+        return comments
+
