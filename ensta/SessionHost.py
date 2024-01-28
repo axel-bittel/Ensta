@@ -15,7 +15,7 @@ from .containers.Post import Post
 from collections.abc import Generator
 from .containers.ProfileHost import ProfileHost
 from .containers.PrivateInfo import PrivateInfo
-from .containers import (FollowedStatus, UnfollowedStatus, FollowPerson)
+from .containers import (FollowedStatus, UnfollowedStatus, FollowPerson, PostUpload, ReelUpload)
 from .lib import (
     SessionError,
     NetworkError,
@@ -624,7 +624,7 @@ class SessionHost:
         http_response = self.request_session.get(share_url, headers=request_headers)
         response_text = http_response.text
 
-        required_text = "instagram://media?id="
+        required_text = "instagram://images?id="
 
         initial_index = response_text.find(required_text)
         if initial_index == -1: raise APIError()
@@ -820,8 +820,8 @@ class SessionHost:
 
     def get_upload_id(self, media_path: str, arg_upload_id: str | None = None) -> str:
         """
-        Uploads the given media to Instagram's server and returns its unique ID which you can later use to configure single or multiple posts.
-        :param media_path: Path to the media file (only jpg & jpeg)
+        Uploads the given images to Instagram's server and returns its unique ID which you can later use to configure single or multiple posts.
+        :param media_path: Path to the images file (only jpg & jpeg)
         :param arg_upload_id: Custom upload_id (for advanced users)
         :return: Upload ID of uploaded file
         """
@@ -955,8 +955,7 @@ class SessionHost:
         archive_only: bool = False,
         disable_comments: bool = False,
         like_and_view_counts_disabled: bool = False
-    ) -> bool:  # TODO: Implement Return Value
-
+    ) -> PostUpload:
         """
         Creates a single photo post on your account.
         :param upload_id: Upload ID of file already uploaded using get_upload_id() method
@@ -965,7 +964,7 @@ class SessionHost:
         :param archive_only: Boolean (Should this post be directly archived)
         :param disable_comments: Boolean (Should comments on this post be disabled)
         :param like_and_view_counts_disabled: Boolean (Shouldn't people be able to see how many users liked & viewed this post)
-        :return: Boolean (Whether post was successfully created or not)
+        :return: PostUpload
         """
 
         request_headers: dict = {
@@ -1019,8 +1018,7 @@ class SessionHost:
 
         try:
             response_json: dict = http_response.json()
-
-            return response_json.get("status", "") == "ok"
+            return PostUpload.from_response_data(response_json)
 
         except JSONDecodeError:
             raise NetworkError("Response not a valid json.")
@@ -1104,8 +1102,7 @@ class SessionHost:
         disable_comments: bool = False,
         like_and_view_counts_disabled: bool = False,
         video_subtitles_enabled: bool = False
-    ) -> bool:  # TODO: Implement Return Value
-
+    ) -> ReelUpload:
         """
         Uploads a reel on your account.
         :param video_path: Path of the video file
@@ -1116,19 +1113,26 @@ class SessionHost:
         :param disable_comments: Boolean (Should comments on this reel be disabled)
         :param like_and_view_counts_disabled: Boolean (Shouldn't people be able to see how many users liked & viewed this reel)
         :param video_subtitles_enabled: Boolean (Should subtitles be enabled on this reel)
-        :return: Boolean (Whether reel was successfully uploaded or not)
+        :return: ReelUpload
         """
 
         upload_id = str(int(time.time()) * 1000)
 
         video_success, video_duration, video_width, video_height = self.__upload_video(video_path, upload_id)
 
-        if not video_success: return False
+        if not video_success: raise NetworkError(
+            "Error while uploading video to Instagram. Please try with a "
+            "different video, and make sure it's an MP4 video."
+        )
+
         if not self.get_upload_id(
-                media_path=thumbnail_path,
-                arg_upload_id=upload_id
+            media_path=thumbnail_path,
+            arg_upload_id=upload_id
         ):
-            return False
+            raise NetworkError(
+                "Error while uploading thumbnail to Instagram. Please make "
+                "sure your image is JPG or try with a different one."
+            )
 
         request_headers: dict = {
             "accept": "*/*",
@@ -1181,8 +1185,7 @@ class SessionHost:
 
         try:
             response_json: dict = http_response.json()
-
-            return response_json.get("status", "") == "ok"
+            return ReelUpload.from_response_data(response_json)
 
         except JSONDecodeError:
             raise NetworkError("Response not a valid json.")
