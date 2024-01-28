@@ -134,6 +134,7 @@ class Guest:
                                 raise APIError("User object not found inside HTTP response.")
 
                             profile = Profile(
+                                username=username,
                                 raw=data,
                                 biography=data["biography"],
                                 biography_links=data["bio_links"],

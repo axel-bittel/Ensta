@@ -11,6 +11,7 @@ class Profile:
     full_name: str = None
     follower_count: int = None
     following_count: int = None
+    username: str = None
     user_id: str = None
     category_name: str = None
     is_business_account: bool = None
