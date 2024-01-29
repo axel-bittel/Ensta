@@ -2,6 +2,7 @@ import time
 import json
 import random
 import string
+from typing import List
 import requests
 import moviepy.editor
 from uuid import uuid4
@@ -11,6 +12,7 @@ from .Direct import Direct
 from json import JSONDecodeError
 from .containers.Liker import Liker
 from .containers.Likers import Likers
+from .containers.Comment import Comment
 from .containers.Post import Post
 from collections.abc import Generator
 from .containers.ProfileHost import ProfileHost
@@ -1371,6 +1373,8 @@ class SessionHost:
         return Direct(self.session_data)
     
     def getOnBatchComments(self, codePost: str, postId, __session__: requests.Session | None = None, min_id = '') -> str:
+        if type(postId) is not str:
+            postId = str(postId)
         uid = postId.replace(" ", "")
 
         request_headers = {
@@ -1391,28 +1395,33 @@ class SessionHost:
             "x-ig-app-id": self.insta_app_id,
             "x-ig-www-claim": self.x_ig_www_claim,
             "x-requested-with": "XMLHttpRequest",
-            "Referer": f"https://www.instagram.com/p/{codePost}/?img_index=1",
+            "Referer": f"https://www.instagram.com/p/{codePost}/",
             "Referrer-Policy": "strict-origin-when-cross-origin"
         }
 
         try:
-            session: requests.Session = __session__
-            if __session__ is None: session: requests.Session = self.request_session
+            if min_id != '' and min_id != None: min_id = f"min_id={min_id}"
 
-            if min_id != '': min_id = f"?min_id={min_id}"
-
-            http_response = session.get(f"https://i.instagram.com/api/v1/media/{uid}/comments/{min_id}", headers=request_headers)
+            print ("Get Comments")
+            if min_id != '' and min_id != None: 
+                http_response = self.request_session.get(f"https://www.instagram.com/api/v1/media/{uid}/comments/?can_support_threading=true&{min_id}&sort_order=popular", headers=request_headers, allow_redirects=False)
+            else:
+                http_response = self.request_session.get(f"https://www.instagram.com/api/v1/media/{uid}/comments/?can_support_threading=true&permalink_enabled=true", headers=request_headers, allow_redirects=False)
             response_json = http_response.json()
 
             return response_json
 
         except JSONDecodeError:
             raise NetworkError("HTTP Response is not a valid JSON.")
+        except requests.RequestException as e:
+            print(e)
+            raise e
 
-    def getComments(self, code, postId, number = 0) -> str :
+    def getComments(self, code, postId, number = 0) -> List[Comment] :
         comments = []
 
         minId = ""
+        nbError = 0
         while (minId != None) and (number == 0 or len(comments) < number):
             try:
                 result = self.getOnBatchComments(code, postId, __session__=self.request_session, min_id=minId)
@@ -1421,8 +1430,15 @@ class SessionHost:
                 minId = result.get('next_min_id')
                 if result.get('comments') != None:
                     comments.extend(result.get('comments'))
-            except Exception as e:
-                print(e)
-                return comments
-        return comments
+
+                time.sleep(1)
+            except NetworkError as e:
+                raise e
+            except requests.RequestException :
+                nbError += 1
+                if nbError > 2:
+                    return (comments, '')
+                time.sleep(3)
+            
+        return (comments, '')
 
