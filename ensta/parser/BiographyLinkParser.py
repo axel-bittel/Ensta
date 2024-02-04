@@ -1,4 +1,4 @@
-from ensta.structures.BiographyLink import BiographyLink
+from helper.Ensta.ensta.structures.BiographyLink import BiographyLink
 
 
 def parse_biography_link(information: dict) -> BiographyLink:

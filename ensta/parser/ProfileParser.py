@@ -1,4 +1,4 @@
-from ensta.structures.Profile import Profile
+from helper.Ensta.ensta.structures.Profile import Profile
 from .BiographyLinkParser import parse_biography_link
 
 
