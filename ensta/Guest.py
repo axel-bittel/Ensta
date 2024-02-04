@@ -120,6 +120,8 @@ class Guest:
                 "Please wait for some time, or use a different account. "
                 "And be careful next time to avoid a permanent ban."
             )
+        if http_response.status_code == 404:
+            raise Exception("User not found.")
 
         try:
             response_json: dict = http_response.json()
@@ -258,6 +260,7 @@ class Guest:
 
         current_max_id = ""
         generated_count = 0
+        failCount = 0
 
         while True:
             current_max_id_text = ""
@@ -283,6 +286,34 @@ class Guest:
                 response_json = http_response.json()
 
                 if "status" not in response_json or "items" not in response_json:
+                    if "message" in response_json and response_json["message"] == "Please wait a few minutes before you try again.":
+                        self.__init__(proxy=self.request_session.proxies)
+                        request_headers = {
+                            "accept": "*/*",
+                            "accept-language": "en-US,en;q=0.9",
+                            "sec-ch-prefers-color-scheme": self.preferred_color_scheme,
+                            "sec-ch-ua": self.user_agent,
+                            "sec-ch-ua-full-version-list": self.user_agent,
+                            "sec-ch-ua-mobile": "?0",
+                            "sec-ch-ua-platform": "\"Windows\"",
+                            "sec-ch-ua-platform-version": "\"15.0.0\"",
+                            "sec-fetch-dest": "empty",
+                            "sec-fetch-mode": "cors",
+                            "sec-fetch-site": "same-origin",
+                            "viewport-width": "1475",
+                            "x-asbd-id": "129477",
+                            "x-csrftoken": self.csrf_token,
+                            "x-ig-app-id": self.insta_app_id,
+                            "x-ig-www-claim": self.x_ig_www_claim,
+                            "x-requested-with": "XMLHttpRequest",
+                            "Referer": f"https://www.instagram.com/{username}/",
+                            "Referrer-Policy": "strict-origin-when-cross-origin"
+                        }
+
+                        failCount += 1
+                        if failCount > 50:
+                            raise NetworkError("HTTP response doesn't include 'status' or 'items' node.")
+                        continue
                     yield None
                     raise NetworkError("HTTP response doesn't include 'status' or 'items' node.")
 
@@ -353,7 +384,20 @@ class Guest:
                 latest_reel_media=user_data.get("latest_reel_media", 0)
             )
 
+        image = ""
+        if data.get("image_versions2", None) is not None:
+            imgData = data["image_versions2"]
+            imgData = imgData.get("candidates", None)
+
+            if imgData is not None:
+                if len(imgData) >= 3:
+                    image = imgData[2]
+                image = imgData[0]
+                while type(image) is list:
+                        image = image[0]
+                image = image.get("url", "")
         return Post(
+            thumbnail_url=image,
             share_url=f"https://www.instagram.com/p/{data.get('code', '')}",
             taken_at=data.get("taken_at", 0),
             post_id=data.get("pk", ""),
