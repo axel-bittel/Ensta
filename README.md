@@ -3,7 +3,7 @@
 [![PyPI - Python Version](https://img.shields.io/pypi/pyversions/ensta)]()
 [![Downloads](https://static.pepy.tech/badge/ensta)](https://pepy.tech/project/ensta)
 
-![Logo](https://raw.githubusercontent.com/diezo/Ensta/master/assets/image.jpg)
+<!-- ![Logo](https://raw.githubusercontent.com/diezo/Ensta/master/assets/image.jpg)  -->
 
 Ensta uses a combination of Instagram's Web API & Mobile API making it a reliable choice over other third-party libraries. Also unlike other libraries, ensta always stays up-to-date.
 
@@ -306,6 +306,20 @@ for user in likers.users:
 
 <details>
 
+<summary>Change Profile Picture</summary><br>
+
+```python
+from ensta import Mobile
+
+mobile = Mobile(username, password)
+
+mobile.change_profile_picture("image.jpg")
+```
+
+</details>
+
+<details>
+
 <summary>Edit Biography, Display Name</summary><br>
 
 ```python
@@ -381,13 +395,17 @@ Ask questions, discuss upcoming features and meet other developers.
 
 [<img src="https://i.ibb.co/qdX7F1b/IMG-20240105-115646-modified-modified.png" width="150"/>](https://discord.com/invite/pU4knSwmQe)
 
-## Support Us
-Ensta is and will always be free to use, and that's a promise. If you wish to support it financially, please consider buying a coffee from here:
+## Support Me
+If you wish to support my work, please consider visiting this link:
 
 [<img style="margin-top: 10px" src="https://raw.githubusercontent.com/diezo/Ensta/master/assets/coffee.svg" width="160"/>](https://buymeacoffee.com/diezo)
 
 ## Contributors
 [![Contributors](https://contrib.rocks/image?anon=1&repo=diezo/ensta&)](https://github.com/diezo/ensta/graphs/contributors)
+
+## Projects using Ensta
+- [**Margot Bot**](https://instagram.com/enstabott): An Instagram Bot that changes it's biography every day to reflect the current weekday. (IST Timezone)
+- [**Instagram REST API**](https://github.com/olgud/ensta-rest): A flask app that uses Ensta to deliver a third-party REST API for Instagram.
 
 ## Legal
 This is a third party library and not associated with Instagram. We're strictly against spam. You are liable for all the actions you take.

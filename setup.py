@@ -1,12 +1,19 @@
 from distutils.core import setup
 from pathlib import Path
 
-version = "5.1.1"
+version = "5.1.3"
 long_description = (Path(__file__).parent / "README.md").read_text(encoding="utf-8")
 
 setup(
     name="ensta",
-    packages=["ensta", "ensta.lib", "ensta.containers"],
+    python_requires=">=3.10",
+    packages=[
+        "ensta",
+        "ensta.lib",
+        "ensta.containers",
+        "ensta.structures",
+        "ensta.parser"
+    ],
     version=version,
     license="MIT",
     description="🔥 Fastest & Simplest Python Package For Instagram Automation",

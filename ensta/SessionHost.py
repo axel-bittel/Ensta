@@ -17,7 +17,7 @@ from .containers.Post import Post
 from collections.abc import Generator
 from .containers.ProfileHost import ProfileHost
 from .containers.PrivateInfo import PrivateInfo
-from .containers import (FollowedStatus, UnfollowedStatus, FollowPerson, PostUpload, ReelUpload)
+from .containers import (FollowedStatus, UnfollowedStatus, FollowPerson, PhotoUpload, ReelUpload)
 from .lib import (
     SessionError,
     NetworkError,
@@ -63,9 +63,10 @@ class SessionHost:
 
         if proxy is not None: self.request_session.proxies.update(proxy)
 
+        session_data_json: dict = json.loads(session_data)
+
         self.guest = Guest(proxy=proxy)
 
-        session_data_json: dict = json.loads(session_data)
         self.user_id = session_data_json.get("user_id")
         self.username = session_data_json.get("username")
         self.identifier = session_data_json.get("identifier")
@@ -957,7 +958,7 @@ class SessionHost:
         archive_only: bool = False,
         disable_comments: bool = False,
         like_and_view_counts_disabled: bool = False
-    ) -> PostUpload:
+    ) -> PhotoUpload:
         """
         Creates a single photo post on your account.
         :param upload_id: Upload ID of file already uploaded using get_upload_id() method
@@ -1020,7 +1021,7 @@ class SessionHost:
 
         try:
             response_json: dict = http_response.json()
-            return PostUpload.from_response_data(response_json)
+            return PhotoUpload.from_response_data(response_json)
 
         except JSONDecodeError:
             raise NetworkError("Response not a valid json.")
