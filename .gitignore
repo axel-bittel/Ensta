@@ -5,4 +5,4 @@
 *.pyc
 /sensitive
 /test.[*]
-*.pyc
+*/__pycache__
