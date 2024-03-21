@@ -1,10 +1,13 @@
 import json
 from json import JSONDecodeError
 from requests import Session, Response
-import os
 from uuid import uuid4
 from .PasswordEncryption import PasswordEncryption
 from .lib.Exceptions import AuthenticationError
+from requests.models import CaseInsensitiveDict
+from .SessionManager import SessionManager
+import pyotp
+import ntplib
 
 
 class Credentials:
@@ -19,6 +22,7 @@ class Credentials:
 
     session: Session
     user_agent: str
+    totp_token: str
 
     bearer: str
     user_id: str
@@ -29,20 +33,25 @@ class Credentials:
     device_id: str = "android-d105ec84a512642c"
 
     def __init__(
-            self,
-            identifier: str,
-            password: str,
-            user_agent: str,
-            session: Session,
-            save_file: str,
-            logging: bool = False
+        self,
+        identifier: str,
+        password: str,
+        user_agent: str,
+        session: Session,
+        save_folder: str,
+        totp_token: str,
+        session_data: str,
+        logging: bool = False
     ) -> None:
 
         self.session = session
         self.user_agent = user_agent
+        self.totp_token = totp_token
 
         # Existing Stored Credentials?
-        stored_dict: dict = self.fetch_stored_dict(save_file)
+        if session_data is not None: stored_dict: dict = json.loads(session_data)
+        else: stored_dict: dict = SessionManager.load_from_file(identifier, password, save_folder)
+
         stored_dict_valid: bool = True
 
         # Validate StoredDict
@@ -61,36 +70,15 @@ class Credentials:
         # Create New Session
         else:
             if logging: print("Creating new session...")
-            self.login(identifier, password, save_file)
-
-    @staticmethod
-    def fetch_stored_dict(save_file: str) -> dict:
-        """
-        Reads the stored session file content and returns its JSON.
-        :param save_file: File Path
-        :return: JSON Content or None
-        """
-
-        # File Doesn't Exist
-        if not os.path.exists(save_file) or not os.path.isfile(save_file): return dict()
-
-        # Read File Content
-        with open(save_file, "r") as file:
-            content: str = file.read().strip()
-
-        # Is Content A Valid JSON?
-        try: return json.loads(content)
-
-        # File Content Not A Valid JSON
-        except JSONDecodeError: return dict()
+            self.login(identifier, password, save_folder)
 
 
-    def login(self, identifier: str, password: str, save_file: str) -> None:
+    def login(self, identifier: str, password: str, save_folder: str) -> None:
         """
         Takes identifier and password, authenticates, stores new session in file, and returns a bunch of session data.
         :param identifier: Username or Email
         :param password: Password
-        :param save_file: File path to store new session in. Empty to skip storing session.
+        :param save_folder: Folder path to store new session in. Empty to skip storing session.
         :return: Tuple of session data
         """
 
@@ -120,39 +108,49 @@ class Credentials:
         )
 
         try:
+            user_info: dict | None = None
+            response_headers: CaseInsensitiveDict[str] | None = None
+
             # Parse Response Body Into A JSON
             response_dict: dict = response.json()
 
             # Request Failed
             if response_dict.get("status", "fail") != "ok":
 
-                raise AuthenticationError(
-                    f"Login failed with given credentials.\nError: \"{response_dict.get('error_title', 'unknown')}\"\n"
-                    f"Message: \"{response_dict.get('message', 'unknown')}\""
+                # Other Than 2FA?
+                if response_dict.get("error_type", "") != "two_factor_required":
+                    raise AuthenticationError(
+                        f"Login failed with given credentials.\n"
+                        f"Response: {response_dict}"
+                    )
+
+                # 2FA Required
+                user_info, response_headers = self.handle_2fa(
+                    information=response_dict.get("two_factor_info", {}),
+                    phone_id=phone_id,
+                    guid=guid
                 )
 
             # Request Succeeded: Collect Data
-            user_info: dict = response_dict.get("logged_in_user", dict())
+            if user_info is None: user_info: dict = response_dict.get("logged_in_user", dict())
 
-            self.bearer: str = response.headers.get("ig-set-authorization")
+            if response_headers is None: self.bearer: str = response.headers.get("ig-set-authorization")
+            else: self.bearer: str = response_headers.get("ig-set-authorization")
+
             self.user_id: str = str(user_info.get("pk"))
-            self.username: str = user_info.get("username")
             self.phone_id = phone_id
+            self.username: str = user_info.get("username")
             self.stored_identifier = identifier
 
             # Save Session in File
-            if save_file != "":
-                with open(save_file, "w") as file:
-                    file.write(
-                        json.dumps({
-                            "bearer": self.bearer,
-                            "user_id": self.user_id,
-                            "username": self.username,
-                            "identifier": identifier,
-                            "phone_id": phone_id,
-                            "device_id": self.device_id
-                        })
-                    )
+            if save_folder != "":
+                SessionManager.save_to_file(
+                    folder_name=save_folder,
+                    identifier=identifier,
+                    password=password,
+                    phone_id=phone_id,
+                    instance=self
+                )
 
         # Response Body Not A Valid JSON
         except JSONDecodeError:
@@ -160,3 +158,94 @@ class Credentials:
                 "Response I got didn't parse into a JSON. Maybe you're being rate "
                 "limited. Change WiFi or use reputed proxies."
             )
+
+    def handle_2fa(
+        self,
+        information: dict,
+        phone_id: str,
+        guid: str
+    ) -> tuple[dict, CaseInsensitiveDict[str]]:
+
+        # Only TOTP Supported: No SMS, No WhatsApp
+        if information.get("totp_two_factor_on", False) is False:
+            raise AuthenticationError(
+                "Only TOTP-based 2FA is supported till now."
+            )
+
+        # TODO: Remove when implemented
+        raise NotImplementedError("TOTP 2FA not implemented yet!")
+
+        # TOTP Token Supplied? Take Input | Use That
+        if self.totp_token is None: code: str = input("Enter TOTP Code: ")
+        else: code: str = self.new_totp_code(self.totp_token)
+
+        while True:
+            user_info, response_headers = self.bypass_totp(
+                code=code,
+                two_factor_identifier=information.get("two_factor_identifier"),
+                phone_id=phone_id,
+                guid=guid
+            )
+
+            if user_info is not None and response_headers is not None: break
+
+            if self.totp_token is None:
+                code: str = input(
+                    "Unable to verify code.\n\n"
+                    "Enter TOTP Code: "
+                )
+
+            else:
+                raise AuthenticationError(
+                    "Unable to verify TOTP 2FA Code. Is the totp_token correct?"
+                )
+
+        return user_info, response_headers
+
+    @staticmethod
+    def new_totp_code(token: str) -> str:
+        """
+        Generates a new TOTP Code for the current time using secret token.
+
+        :param token: TOTP Token generated by Instagram stored secretly in the Authenticator App.
+        :return: Generated Code
+        """
+
+        current_time: int = int(ntplib.NTPClient().request("time.google.com", version=3).tx_time)
+
+        return str(
+            pyotp.TOTP(token).at(current_time)
+        )
+
+    def bypass_totp(self, code: str, two_factor_identifier: str, phone_id: str, guid: str) -> tuple[dict, CaseInsensitiveDict[str]]:
+
+        response: Response = self.session.post(
+            url="https://i.instagram.com/api/v1/accounts/two_factor_login/",
+            headers={
+                "content-type": "application/x-www-form-urlencoded; charset=UTF-8",
+                "accept-encoding": "gzip",
+                "connection": "Keep-Alive"
+            },
+            data={
+                "signed_body": "SIGNATURE." + json.dumps(
+                    {
+                        "verification_code": code,
+                        "phone_id": phone_id,
+                        "two_factor_identifier": two_factor_identifier,
+                        "trust_this_device": "1",
+                        "guid": guid,
+                        "device_id": self.device_id,
+                        "waterfall_id": str(uuid4()),
+                        "verification_method": "3"  # '3' For TOTP-Based 2FA
+                    }
+                )
+            }
+        )
+
+        # TODO
+        """
+        Return logged_in_user_info and response headers.
+        Error: CSRF Token missing or incorrect.
+        """
+
+        raise Exception(response.json())

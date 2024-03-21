@@ -1,9 +1,9 @@
-from helper.Ensta.ensta.structures.BiographyLink import BiographyLink
+from helper.Ensta.ensta.structures.ReturnedBioLink import ReturnedBioLink
 
 
-def parse_biography_link(information: dict) -> BiographyLink:
+def parse_biography_link(information: dict) -> ReturnedBioLink:
 
-    link = BiographyLink(
+    link = ReturnedBioLink(
         link_id=information.get("link_id"),
         url=information.get("url"),
         lynx_url=information.get("lynx_url"),

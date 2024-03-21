@@ -1,8 +1,11 @@
 *.py[cod]
 /ensta-session.txt
-/ensta-mobile-session.txt
 /test.py
 *.pyc
 /sensitive
 /test.[*]
 */__pycache__
+/test.json
+/build
+**.egg-info
+/ensta-sessions

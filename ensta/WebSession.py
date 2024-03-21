@@ -1,22 +1,22 @@
-import time
+import mimetypes
+import tempfile
+from functools import partial, partialmethod
 import json
 import random
 import string
-from typing import List
 import requests
 import moviepy.editor
 from uuid import uuid4
 from .Guest import Guest
 from pathlib import Path
-from .Direct import Direct
 from json import JSONDecodeError
 from .containers.Liker import Liker
 from .containers.Likers import Likers
-from .containers.Comment import Comment
 from .containers.Post import Post
 from collections.abc import Generator
 from .containers.ProfileHost import ProfileHost
 from .containers.PrivateInfo import PrivateInfo
+from .containers.PostDetail import PostDetail
 from .containers import (FollowedStatus, UnfollowedStatus, FollowPerson, PhotoUpload, ReelUpload)
 from .lib import (
     SessionError,
@@ -24,14 +24,39 @@ from .lib import (
     IdentifierError,
     DevelopmentError,
     APIError,
-    ConversionError,
-    FileTypeError
+    ConversionError
 )
+from PIL import Image
+from ensta.lib.Searcher import create_search_obj, search_comments
+from urllib.parse import urlparse, parse_qs
+from .Utils import time_id, fb_uploader
+from pyquery import PyQuery
 
 USERNAME, UID = 0, 1
 
 
-class SessionHost:
+IMAGE_RUPLOAD_PARAMS = {
+    "retry_context": "{\"num_step_auto_retry\": 0, \"num_reupload\": 0, \"num_step_manual_retry\": 0}",
+    "media_type": "1",
+    "image_compression": json.dumps({"lib_name": "moz", "lib_version": "3.1.m", "quality": 80})
+}
+
+REEL_RUPLOAD_PARAMS = {
+    "retry_context": "{\"num_step_auto_retry\": 0, \"num_reupload\": 0, \"num_step_manual_retry\": 0}",
+    "is_clips_video": "1",
+    "media_type": "2",
+}
+
+CAROUSEL_VIDEO_RUPLOAD_PARAMS = {
+    "retry_context": "{\"num_step_auto_retry\": 0, \"num_reupload\": 0, \"num_step_manual_retry\": 0}",
+    "is_unified_video": "0",
+    "is_clips_video": "0",
+    "is_sidecar": "1",
+    "media_type": "2",
+}
+
+
+class WebSession:
 
     session_data: str
     request_session: requests.Session
@@ -184,8 +209,10 @@ class SessionHost:
                         )
                 else:
                     if response_json["status"] != "ok":
-                        if response_json.get("spam", False) == True:
-                            raise NetworkError("Spam Detected: Your actions are being limited by Instagram. Please slow down.")
+                        if response_json.get("spam", False):
+                            raise NetworkError(
+                                "Spam Detected: Your actions are being limited by Instagram. Please slow down."
+                            )
                         
                         raise NetworkError("Response \"Status\" not ok.")
                     
@@ -595,13 +622,7 @@ class SessionHost:
 
         return self.guest.posts(username, count, __session__=self.request_session)
 
-    def get_post_id(self, share_url: str) -> str:
-        """
-        Returns post_id of specific post, given its share_url, which can further be used to like or add comment to that post.
-        :param share_url: Share URL of post. e.g. - https://www.instagram.com/p/Czr2yLmroCQ/
-        :return: PostID in text format
-        """
-
+    def get_raw_post(self, share_url: str) -> str:
         share_url: str = share_url.strip()
 
         request_headers = {
@@ -625,7 +646,43 @@ class SessionHost:
         }
 
         http_response = self.request_session.get(share_url, headers=request_headers)
-        response_text = http_response.text
+        return http_response.text
+
+    def post(self, share_url: str) -> PostDetail:
+        """
+        Get single post data from URL.
+        :param share_url: URL of target post
+        :return: PostDetail Object
+        """
+
+        parsed_url = urlparse(share_url)
+        code = parsed_url.path.removeprefix('/p/').removesuffix('/')
+        response_text = self.get_raw_post(share_url)
+        doc = PyQuery(response_text)
+        url = urlparse(doc('meta[property="al:ios:url"]').attr('content'))
+        pk = parse_qs(url.query)['id'][0]
+        search_post = create_search_obj(code=code, pk=pk)
+        post = {}
+        comments = []
+        for json_script in doc('script[type="application/json"]'):
+            try:
+                json_data = json.loads(json_script.text)
+            except Exception as ex:
+                continue
+            comments.extend(search_comments(json_data))
+            for p in search_post(json_data):
+                post.update(p)
+        post['comments'] = comments
+        return PostDetail.from_data(post)
+
+    def get_post_id(self, share_url: str) -> str:
+        """
+        Returns post_id of specific post, given its share_url, which can further be used to like or add comment to that post.
+        :param share_url: Share URL of post. e.g. - https://www.instagram.com/p/Czr2yLmroCQ/
+        :return: PostID in text format
+        """
+
+        response_text = self.get_raw_post(share_url)
 
         required_text = "instagram://images?id="
 
@@ -821,106 +878,88 @@ class SessionHost:
         except JSONDecodeError:
             raise NetworkError("HTTP Response is not a valid JSON.")
 
-    def get_upload_id(self, media_path: str, arg_upload_id: str | None = None) -> str:
+    def _upload_image(self, media: str, upload_id: str | None = None, **kwargs) -> str:
         """
-        Uploads the given images to Instagram's server and returns its unique ID which you can later use to configure single or multiple posts.
-        :param media_path: Path to the images file (only jpg & jpeg)
-        :param arg_upload_id: Custom upload_id (for advanced users)
-        :return: Upload ID of uploaded file
+        https://i.instagram.com/rupload_igphoto/
         """
-
-        media_path: Path = Path(media_path)
-
-        if media_path.suffix not in (".jpg", ".jpeg"): raise FileTypeError(
-            "Only jpg and jpeg image types are allowed to post."
-        )
-
-        upload_id = arg_upload_id if arg_upload_id is not None else str(int(time.time()) * 1000)
+        rupload_params = dict(kwargs)
+        media_path: Path = Path(media)
+        mimetype, _ = mimetypes.guess_type(media_path)
+        upload_id = upload_id or time_id()
         waterfall_id = str(uuid4())
-        upload_name = f"{upload_id}_0_{random.randint(1000000000, 9999999999)}"
-
-        rupload_params = {
-            "retry_context": "{\"num_step_auto_retry\": 0, \"num_reupload\": 0, \"num_step_manual_retry\": 0}",
-            "media_type": "1",
-            "xsharing_user_ids": "[]",
+        upload_name = fb_uploader(upload_id)
+        rupload_params.update(**{
             "upload_id": upload_id,
-            "image_compression": json.dumps({"lib_name": "moz", "lib_version": "3.1.m", "quality": 80})
-        }
+            "xsharing_user_ids": json.dumps([self.user_id]),
+        })
 
         with open(media_path, "rb") as file:
-            photo_data = file.read()
-            photo_length = str(len(photo_data))
+            image_data = file.read()
+            image_length = str(len(image_data))
 
         request_headers = {
             "accept-encoding": "gzip",
             "x-instagram-rupload-params": json.dumps(rupload_params),
             "x_fb_photo_waterfall_id": waterfall_id,
-            "x-entity-type": "image/jpeg",
+            "x-entity-type": mimetype,
             "offset": "0",
             "x-entity-name": upload_name,
-            "x-entity-length": photo_length,
-            "content-type": "application/octet-stream",
-            "content-length": photo_length
+            "x-entity-length": image_length,
+            "content-type": mimetype,
+            "content-length": image_length
         }
 
         http_response = self.request_session.post(
             f"https://i.instagram.com/rupload_igphoto/{upload_name}",
-            data=photo_data,
+            data=image_data,
             headers=request_headers
         )
 
         try:
             response_json: dict = http_response.json()
 
-            if response_json.get("status", "") != "ok": raise NetworkError("Response json key 'status' not ok.")
-            if response_json.get("upload_id", "") == "": raise NetworkError(
-                "Key 'upload_id' in response json doesn't exist or is invalid."
-            )
+            if response_json.get("status", "") != "ok":
+                raise NetworkError("Response json key 'status' not ok.")
+            if response_json.get("upload_id", "") == "":
+                raise NetworkError(
+                    "Key 'upload_id' in response json doesn't exist or is invalid."
+                )
 
             return str(response_json.get("upload_id"))
 
         except JSONDecodeError:
             raise NetworkError("Response not a valid json.")
 
-    def __upload_video(self, path: str, arg_upload_id: str | None = None) -> tuple[bool, any, any, any]:
-        video_editor = moviepy.editor.VideoFileClip(path)
-
-        path: Path = Path(path)
+    def _upload_video(self, media: str, upload_id: str | None = None, thumbnail=0, **kwargs) -> str:
+        """
+        https://i.instagram.com/rupload_igvideo/
+        video requires and image as thumbnail
+        """
+        assert thumbnail != None
+        rupload_params = dict(kwargs)
+        media_path: Path = Path(media)
+        mimetype, _ = mimetypes.guess_type(media_path)
+        video_editor = moviepy.editor.VideoFileClip(media)
         waterfall_id = str(uuid4())
+        upload_id = upload_id or time_id()
+        upload_name = fb_uploader(upload_id)
 
-        upload_id = arg_upload_id if arg_upload_id is not None else str(int(time.time()) * 1000)
-        upload_name = f"{upload_id}_0_{random.randint(1000000000, 9999999999)}"
-
-        rupload_params = {
-            "is_clips_video": "1",
-            "retry_context": "{\"num_step_auto_retry\": 0, \"num_reupload\": 0, \"num_step_manual_retry\": 0}",
-            "media_type": "2",
+        rupload_params.update(**{
             "xsharing_user_ids": json.dumps([self.user_id]),
             "upload_id": upload_id,
             "upload_media_duration_ms": str(int(video_editor.duration * 1000)),
             "upload_media_width": str(video_editor.size[0]),
-            "upload_media_height": str(video_editor.size[1])
-        }
+            "upload_media_height": str(video_editor.size[1]),
+        })
 
         request_headers__get = {
             "accept-encoding": "gzip",
             "x-instagram-rupload-params": json.dumps(rupload_params),
             "x_fb_video_waterfall_id": waterfall_id,
-            "x-entity-type": "video/mp4"
+            "x-entity-type": mimetype,
         }
 
-        http_response__get = self.request_session.get(
-            f"https://i.instagram.com/rupload_igvideo/{upload_name}",
-            headers=request_headers__get
-        )
-
-        if http_response__get.status_code != 200: raise NetworkError(
-            "Video Upload 'GET' Request failed. Status code not 200."
-        )
-
-        # POST Request
-
-        with open(path, "rb") as file:
+        with open(media_path, "rb") as file:
             video_data = file.read()
             video_length = str(len(video_data))
 
@@ -928,7 +967,7 @@ class SessionHost:
             "offset": "0",
             "x-entity-name": upload_name,
             "x-entity-length": video_length,
-            "content-type": "application/octet-stream",
+            "content-type": mimetype,
             "content-length": video_length,
             **request_headers__get
         }
@@ -938,19 +977,36 @@ class SessionHost:
             data=video_data,
             headers=request_headers
         )
+        response_json: dict = http_response.json()
+        if response_json.get("status", "") != "ok":
+            raise Exception()
 
-        try:
-            response_json: dict = http_response.json()
+        if isinstance(thumbnail, (int, float)):
+            thumbnail_frame = video_editor.get_frame(thumbnail)
+            with tempfile.NamedTemporaryFile(suffix='.jpg') as thumbnail_file:
+                Image.fromarray(thumbnail_frame).save(thumbnail_file.name)
+                return self.upload_image(media=thumbnail_file.name, upload_id=upload_id)
+        return self.upload_image(media=thumbnail, upload_id=upload_id)
 
-            return response_json.get("status", "") == "ok",\
-                video_editor.duration,\
-                video_editor.size[0],\
-                video_editor.size[1]
+    def upload_media(self, media: str, upload_id: str | None = None, **kwargs) -> str:
 
-        except JSONDecodeError:
-            raise NetworkError("Response not a valid json.")
+        def unknown_type(*_, **__):
+            raise Exception(f'Unknown type {media}')
 
-    def upload_photo(
+        mimetype, _ = mimetypes.guess_type(media)
+        type, _ = mimetype.split('/')
+        methods = {
+            'image': self._upload_image,
+            'video': self._upload_video,
+        }
+        method = methods.get(type, unknown_type)
+        return method(media, upload_id, **kwargs)
+
+    upload_video_for_carousel = partialmethod(_upload_video, **CAROUSEL_VIDEO_RUPLOAD_PARAMS)
+    upload_video_for_reel = partialmethod(_upload_video, **REEL_RUPLOAD_PARAMS)
+    upload_image = partialmethod(_upload_image, **IMAGE_RUPLOAD_PARAMS)
+
+    def pub_photo(
         self,
         upload_id: str,
         caption: str = "",
@@ -1026,7 +1082,7 @@ class SessionHost:
         except JSONDecodeError:
             raise NetworkError("Response not a valid json.")
 
-    def upload_photos(
+    def pub_carousel(
         self,
         upload_ids: list[str],
         caption: str = "",
@@ -1034,7 +1090,6 @@ class SessionHost:
         disable_comments: bool = False,
         like_and_view_counts_disabled: bool = False,
     ) -> bool:  # TODO: Implement Return Value
-
         """
         Creates a single post with multiple photos on your account.
         :param upload_ids: List (Upload IDs of files already uploaded using get_upload_id() method)
@@ -1075,7 +1130,7 @@ class SessionHost:
             "archive_only": archive_only,
             "caption": caption,
             "children_metadata": [{"upload_id": upload_id} for upload_id in upload_ids],
-            "client_sidecar_id": str(int(time.time()) * 1000),
+            "client_sidecar_id": time_id(),
             "disable_comments": "1" if disable_comments else "0",
             "like_and_view_counts_disabled": "1" if like_and_view_counts_disabled else "0",
             "source_type": "library"
@@ -1095,10 +1150,9 @@ class SessionHost:
         except JSONDecodeError:
             raise NetworkError("Response not a valid json.")
 
-    def upload_reel(
+    def pub_reel(
         self,
-        video_path: str,
-        thumbnail_path: str,
+        upload_id: str,
         caption: str = "",
         alt_text: str = "",
         archive_only: bool = False,
@@ -1118,25 +1172,6 @@ class SessionHost:
         :param video_subtitles_enabled: Boolean (Should subtitles be enabled on this reel)
         :return: ReelUpload
         """
-
-        upload_id = str(int(time.time()) * 1000)
-
-        video_success, video_duration, video_width, video_height = self.__upload_video(video_path, upload_id)
-
-        if not video_success: raise NetworkError(
-            "Error while uploading video to Instagram. Please try with a "
-            "different video, and make sure it's an MP4 video."
-        )
-
-        if not self.get_upload_id(
-            media_path=thumbnail_path,
-            arg_upload_id=upload_id
-        ):
-            raise NetworkError(
-                "Error while uploading thumbnail to Instagram. Please make "
-                "sure your image is JPG or try with a different one."
-            )
-
         request_headers: dict = {
             "accept": "*/*",
             "accept-language": "en-US,en;q=0.9",
@@ -1366,83 +1401,3 @@ class SessionHost:
             )
         except JSONDecodeError:
             return None
-
-    def direct(self) -> Direct:
-        """
-        Lets you use the direct messaging feature
-
-        :return: Direct() class with all the supported methods
-        """
-
-        return Direct(self.session_data)
-    
-    def getOnBatchComments(self, codePost: str, postId, __session__: requests.Session | None = None, min_id = '') -> str:
-        if type(postId) is not str:
-            postId = str(postId)
-        uid = postId.replace(" ", "")
-
-        request_headers = {
-            "accept": "*/*",
-            "accept-language": "en-US,en;q=0.9",
-            "sec-ch-prefers-color-scheme": self.preferred_color_scheme,
-            "sec-ch-ua": self.user_agent,
-            "sec-ch-ua-full-version-list": self.user_agent,
-            "sec-ch-ua-mobile": "?0",
-            "sec-ch-ua-platform": "\"Windows\"",
-            "sec-ch-ua-platform-version": "\"15.0.0\"",
-            "sec-fetch-dest": "empty",
-            "sec-fetch-mode": "cors",
-            "sec-fetch-site": "same-origin",
-            "viewport-width": "1475",
-            "x-asbd-id": "129477",
-            "x-csrftoken": self.csrf_token,
-            "x-ig-app-id": self.insta_app_id,
-            "x-ig-www-claim": self.x_ig_www_claim,
-            "x-requested-with": "XMLHttpRequest",
-            "Referer": f"https://www.instagram.com/p/{codePost}/",
-            "Referrer-Policy": "strict-origin-when-cross-origin"
-        }
-
-        try:
-            if min_id != '' and min_id != None: min_id = f"min_id={min_id}"
-
-            print ("Get Comments")
-            if min_id != '' and min_id != None: 
-                http_response = self.request_session.get(f"https://www.instagram.com/api/v1/media/{uid}/comments/?can_support_threading=true&{min_id}&sort_order=popular", headers=request_headers, allow_redirects=False)
-            else:
-                http_response = self.request_session.get(f"https://www.instagram.com/api/v1/media/{uid}/comments/?can_support_threading=true&permalink_enabled=true", headers=request_headers, allow_redirects=False)
-            response_json = http_response.json()
-
-            return response_json
-
-        except JSONDecodeError:
-            raise NetworkError("HTTP Response is not a valid JSON.")
-        except requests.RequestException as e:
-            print(e)
-            raise e
-
-    def getComments(self, code, postId, number = 0) -> List[Comment] :
-        comments = []
-
-        minId = ""
-        nbError = 0
-        while (minId != None) and (number == 0 or len(comments) < number):
-            try:
-                result = self.getOnBatchComments(code, postId, __session__=self.request_session, min_id=minId)
-
-                #Cast to comment 
-                minId = result.get('next_min_id')
-                if result.get('comments') != None:
-                    comments.extend(result.get('comments'))
-
-                time.sleep(1)
-            except NetworkError as e:
-                raise e
-            except requests.RequestException :
-                nbError += 1
-                if nbError > 2:
-                    return (comments, '')
-                time.sleep(3)
-            
-        return (comments, '')
-

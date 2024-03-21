@@ -1,10 +1,11 @@
 from dataclasses import dataclass
 
+
 @dataclass
-class BiographyLink:
+class ReturnedBioLink:
 
     """
-    Stores a single biography link's information e.g. - Link Title, Link URL, Link ID, etc.
+    Stores a single returned biography link's information e.g. - Link Title, Link URL, Link ID, etc.
     """
 
     link_id: int

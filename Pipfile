@@ -6,14 +6,20 @@ name = "pypi"
 [packages]
 requests = "*"
 moviepy = "*"
+pillow = "*"
 cryptography = "*"
 pyotp = "*"
 ntplib = "*"
+pyquery = "*"
 
 [dev-packages]
+autopep8 = "*"
+coverage = "*"
 
 [requires]
 python_version = "3.10"
 
 [scripts]
-test = "python -m unittest"
+test = "python -m unittest discover -s test_ensta/ -t ."
+format = "autopep8 --exit-code ."
+coverage = "sh -c 'coverage run -m unittest discover -s test_ensta/ -t . && coverage xml'"

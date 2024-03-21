@@ -1,305 +1,92 @@
-# Ensta - Free Instagram API
+# Ensta - Simple Instagram API
 [![PyPI](https://img.shields.io/pypi/v/ensta)](https://pypi.org/project/ensta)
 [![PyPI - Python Version](https://img.shields.io/pypi/pyversions/ensta)]()
 [![Downloads](https://static.pepy.tech/badge/ensta)](https://pepy.tech/project/ensta)
 
-<!-- ![Logo](https://raw.githubusercontent.com/diezo/Ensta/master/assets/image.jpg)  -->
+![Logo](https://raw.githubusercontent.com/diezo/Ensta/master/assets/image.jpg)
 
-Ensta uses a combination of Instagram's Web API & Mobile API making it a reliable choice over other third-party libraries. Also unlike other libraries, ensta always stays up-to-date.
+Ensta is a simple, reliable and up-to-date python package for Instagram API.
 
-Both authenticated & non-authenticated requests are supported.
+Both **authenticated** and **anonymous** requests are supported.
 
-[<img style="margin-top: 10px" src="https://raw.githubusercontent.com/diezo/Ensta/master/assets/coffee.svg" width="160"/>](https://buymeacoffee.com/diezo)
+[<img style="margin-top: 10px" src="https://raw.githubusercontent.com/diezo/Ensta/master/assets/coffee.svg" width="180"/>](https://buymeacoffee.com/sonii)
+<!--
+## <img src="https://raw.githubusercontent.com/diezo/Ensta/master/assets/colorful-instagram-icon-vintage-style-art-vector-illustration_836950-30.jpg" width="23"> Account Creator
+Download an Instagram [**Account Creator**](https://sonii.gumroad.com/l/account-creator/EARLY20) written in Python.
+
+- Auto-generates **DuckDuckGo Private Email Addresses**.
+- Auto-fetches OTP from **ProtonMail Inbox**.
+- Auto-updates Profile Picture to an **AI-Generated Human Face**.
+- Sets a random **AI-Generated Biography** on account creation.
+
+Creator should only be used for legitimate purposes. [**Discord**](https://discordapp.com/users/1183040947035062382)
+-->
+
+## 🌟 Star this repo!
+If you found this repository helpful, consider giving it a **star** to show your support!
 
 ## Installation
-Python [**3.10**](https://www.python.org/downloads/) or later is required.
+Read the [**pre-requisites**](https://github.com/diezo/Ensta/wiki/Pre%E2%80%90requisites) here.
 
-```shell
-$ pip install ensta
-```
+    pip install ensta
 
-## Supported Actions
-Tap on the headings to view code:
-
-<details>
-
-<summary>Proxy Support</summary><br>
-
+## Example
+Fetching profile info by username:
 ```python
-from ensta import Host
+from ensta import Mobile
 
-host = Host(username, password, proxy={"http": "http://1.2.3.4", "https": "https://1.2.3.4"})
-```
+mobile = Mobile(username, password)
 
-</details>
-
-<details>
-
-<summary>Username Password Login</summary><br>
-
-```python
-from ensta import Host
-
-host = Host(username, password)  # Email can also be used
-```
-
-</details>
-
-<details>
-
-<summary>SessionData Login</summary><br>
-
-```python
-from ensta import SessionHost
-
-# "session_data" is stored in "ensta-session.txt" file by default.
-# you can also get it using "host.session_data"
-host = SessionHost(session_data)
-```
-
-</details>
-
-<details>
-
-<summary>2FA Login</summary><br>
-
-**Authenticator App**
-
-```python
-from ensta import Host
-
-# The key you got from Instagram when setting up your Authenticator App
-key = "R65I7XTTHNHTQ2NKMQL36NCWKNUPBSDG"
-
-host = Host(
-    username,  # or email
-    password,
-    totp_token=key
-)
-```
-
-**SMS Based**
-
-No need to configure anything. Ensta will automatically ask for SMS OTP in the runtime.
-
-</details>
-
-<details>
-
-<summary>Upload Photo (Single Post)</summary><br>
-
-```python
-from ensta import Host
-
-host = Host(username, password)
-
-upload = host.get_upload_id("Picture.jpg")
-
-host.upload_photo(upload, caption="Travelling 🌆")
-```
-
-</details>
-
-<details>
-
-<summary>Upload Multiple Photos (Single Post)</summary><br>
-
-```python
-from ensta import Host
-
-host = Host(username, password)
-
-upload1 = host.get_upload_id("First.jpg")
-upload2 = host.get_upload_id("Second.jpg")
-upload3 = host.get_upload_id("Third.jpg")
-
-host.upload_photos([upload1, upload2, upload3], caption="Travelling 🌆")
-```
-
-</details>
-
-<details>
-
-<summary>Upload Reel</summary><br>
-
-```python
-from ensta import Host
-
-host = Host(username, password)
-
-host.upload_reel(
-    video_path="Video.mp4",
-    thumbnail_path="Thumbnail.jpg",
-    caption="Enjoying the winter! ⛄"
-)
-```
-
-</details>
-
-<details>
-
-<summary>Check Username Availability</summary><br>
-
-```python
-from ensta import Guest
-
-guest = Guest()
-
-print(guest.username_availability("theusernameiwant"))
-```
-
-</details>
-
-<details>
-
-<summary>Fetch Profile Data</summary><br>
-
-```python
-from ensta import Host
-
-host = Host(username, password)
-profile = host.profile("leomessi")
+profile = mobile.profile("leomessi")
 
 print(profile.full_name)
 print(profile.biography)
-print(profile.follower_count)
+print(profile.profile_pic_url)
 ```
+
+## Features
+These features use the **Mobile API**.
+
+<details>
+
+<summary>Using Proxies</summary><br>
+
+When to use a proxy:
+- You're being rate limited.
+- Ensta is not working because your Home IP is flagged.
+- You're deploying Ensta to the cloud. (Instagram blocks requests from IPs of cloud providers, so a proxy must be used)
+
+```python
+from ensta import Mobile
+
+mobile = Mobile(
+    username,
+    password,
+    proxy={
+        "http": "socks5://username:password@host:port",
+        "https": "socks5://username:password@host:port"
+    }
+)
+```
+
+Ensta uses the same proxy settings as the **requests** module.
 
 </details>
 
 <details>
 
-<summary>Username to UserID, and vice versa.</summary><br>
+<summary>Username-Password Login</summary><br>
+
+Username is recommended to sign in. However, email can also be used.
 
 ```python
-from ensta import Host
+from ensta import Mobile
 
-host = Host(username, password)
+# Recommended
+mobile = Mobile(username, password)
 
-username = host.get_username(427553890)
-uid = host.get_uid("leomessi")
-
-print(username, uid)
-```
-
-</details>
-
-<details>
-
-<summary>Follow / Unfollow Users</summary><br>
-
-```python
-from ensta import Host
-
-host = Host(username, password)
-
-print(host.follow("leomessi"))
-print(host.unfollow("leomessi"))
-```
-
-</details>
-
-<details>
-
-<summary>Generate Followers / Followings List</summary><br>
-
-```python
-from ensta import Host
-
-host = Host(username, password)
-
-followers = host.followers("leomessi", count=100)  # Want full list? Set count to '0'
-followings = host.followings("leomessi", count=100)  # Want full list? Set count to '0'
-
-for user in followers:
-    print(user.username)
-
-for user in followings:
-    print(user.username)
-```
-
-</details>
-
-<details>
-
-<summary>Switch Account Type - Public/Private</summary><br>
-
-```python
-from ensta import Host
-
-host = Host(username, password)
-
-print(host.switch_to_public_account())
-print(host.switch_to_private_account())
-```
-
-</details>
-
-<details>
-
-<summary>Fetch Someone's Feed</summary><br>
-
-```python
-from ensta import Host
-
-host = Host(username, password)
-posts = host.posts("leomessi", 100)  # Want full list? Set count to '0'
-
-for post in posts:
-    print(post.caption_text)
-    print(post.like_count)    
-```
-
-</details>
-
-<details>
-
-<summary>Add Comment on Posts</summary><br>
-
-```python
-from ensta import Host
-
-host = Host(username, password)
-
-post_id = host.get_post_id("https://www.instagram.com/p/Czr2yLmroCQ/")
-
-host.comment("Looks great!", post_id)
-```
-
-</details>
-
-<details>
-
-<summary>Like/Unlike Posts</summary><br>
-
-```python
-from ensta import Host
-
-host = Host(username, password)
-
-post_id = host.get_post_id("https://www.instagram.com/p/Czr2yLmroCQ/")
-
-host.like(post_id)
-host.unlike(post_id)
-```
-
-</details>
-
-<details>
-
-<summary>Fetch Post's Likers</summary><br>
-
-```python
-from ensta import Host
-
-host = Host(username, password)
-
-post_id = host.get_post_id("https://www.instagram.com/p/Czr2yLmroCQ/")
-likers = host.likers(post_id)
-
-for user in likers.users:
-    print(user.username)
-    print(user.profile_picture_url)
+# This also works
+mobile = Mobile(email, password)
 ```
 
 </details>
@@ -320,58 +107,478 @@ mobile.change_profile_picture("image.jpg")
 
 <details>
 
-<summary>Edit Biography, Display Name</summary><br>
+<summary>Fetch Profile Information</summary><br>
 
 ```python
-from ensta import Host
+from ensta import Mobile
 
-host = Host(username, password)
+mobile = Mobile(username, password)
 
-host.change_display_name("Lionel Messi")
-host.change_bio("Athlete")
+profile = mobile.profile("leomessi")
+
+print(profile.full_name)
+print(profile.biography)
+print(profile.follower_count)
 ```
 
 </details>
 
 <details>
 
-<summary>Fetch Your Email, Gender, Birthday, etc.</summary><br>
+<summary>Follow/Unfollow Account</summary><br>
 
 ```python
-from ensta import Host
+from ensta import Mobile
 
-host = Host(username, password)
-me = host.private_info()
+mobile = Mobile(username, password)
 
-print(me.email)
-print(me.gender)
-print(me.birthday)
+mobile.follow("leomessi")
+mobile.unfollow("leomessi")
 ```
 
 </details>
 
-Any missing feature? Please raise an issue.
+<details>
 
-## Basic Usage
+<summary>Change Biography</summary><br>
+
+```python
+from ensta import Mobile
+
+mobile = Mobile(username, password)
+
+mobile.change_biography("New bio here.")
+```
+
+</details>
 
 <details>
 
-<summary><b>Host Class</b> (Authenticated)</summary>
-
-Requires login through username & password.
+<summary>Switch to Private/Public Account</summary><br>
 
 ```python
-from ensta import Host
+from ensta import Mobile
 
-host = Host(username, password)
+mobile = Mobile(username, password)
+
+mobile.switch_to_private_account()
+mobile.switch_to_public_account()
+```
+
+</details>
+
+<details>
+
+<summary>Username to UserID / UserID to Username</summary><br>
+
+```python
+from ensta import Mobile
+
+mobile = Mobile(username, password)
+
+mobile.username_to_userid("leomessi")
+mobile.userid_to_username("12345678")
+```
+
+</details>
+
+<details>
+
+<summary>Like/Unlike Post</summary><br>
+
+```python
+from ensta import Mobile
+
+mobile = Mobile(username, password)
+
+mobile.like(media_id)
+mobile.unlike(media_id)
+```
+
+</details>
+
+<details>
+
+<summary>Fetch Followers/Followings</summary><br>
+
+```python
+from ensta import Mobile
+
+mobile = Mobile(username, password)
+
+followers = mobile.followers("leomessi")
+followings = mobile.followings("leomessi")
+
+for user in followers.list:
+    print(user.full_name)
+
+for user in followings.list:
+    print(user.full_name)
+
+# Fetching next chunk
+followers = mobile.followers(
+    "leomessi",
+    next_cursor=followers.next_cursor
+)
+```
+
+</details>
+
+<details>
+
+<summary>Add Comment to Post</summary><br>
+
+```python
+from ensta import Mobile
+
+mobile = Mobile(username, password)
+
+mobile.comment("Hello", media_id)
+```
+
+</details>
+
+<details>
+
+<summary>Upload Photo</summary><br>
+
+```python
+from ensta import Mobile
+
+mobile = Mobile(username, password)
+
+mobile.upload_photo(
+    upload_id=upload_id,
+    caption="Hello"
+)
+```
+
+</details>
+
+<details>
+
+<summary>Upload Sidecar (Multiple Photos)</summary><br>
+
+```python
+from ensta import Mobile
+from ensta.structures import SidecarChild
+
+mobile = Mobile(username, password)
+
+mobile.upload_sidecar(
+    children=[
+        SidecarChild(uploda_id),
+        SidecarChild(uploda_id),
+        SidecarChild(uploda_id)
+    ],
+    caption="Hello"
+)
+```
+
+</details>
+
+<details>
+
+<summary>Fetch Private Information (Yours)</summary><br>
+
+```python
+from ensta import Mobile
+
+mobile = Mobile(username, password)
+
+account = mobile.private_info()
+
+print(account.email)
+print(account.account_type)
+print(account.phone_number)
+```
+
+</details>
+
+<details>
+
+<summary>Update Display Name</summary><br>
+
+```python
+from ensta import Mobile
+
+mobile = Mobile(username, password)
+
+mobile.update_display_name("Lionel Messi")
+```
+
+</details>
+
+<details>
+
+<summary>Block/Unblock User</summary><br>
+
+```python
+from ensta import Mobile
+
+mobile = Mobile(username, password)
+
+mobile.block(123456789)  # Use UserID
+mobile.unblock(123456789)  # Use UserID
+```
+
+</details>
+
+<details>
+
+<summary>Upload Story (Photo)</summary>
+
+```python
+from ensta import Mobile
+
+mobile = Mobile(username, password)
+
+upload_id = mobile.get_upload_id("image.jpg")
+
+mobile.upload_story(upload_id)
+```
+
+</details>
+
+<details>
+
+<summary>Upload Story (Photo) + Link Sticker</summary>
+
+```python
+from ensta import Mobile
+from ensta.structures import StoryLink
+
+mobile = Mobile(username, password)
+
+upload_id = mobile.get_upload_id("image.jpg")
+
+mobile.upload_story(upload_id, entities=[
+    StoryLink(title="Google", url="https://google.com")
+])
+```
+
+</details>
+
+<details>
+
+<summary>Send Message (Text)</summary>
+
+```python
+from ensta import Mobile
+
+mobile = Mobile(username, password)  # Or use email
+direct = mobile.direct()
+
+direct.send_text("Hello", thread_id)
+```
+
+</details>
+
+<details>
+
+<summary>Send Message (Picture)</summary>
+
+```python
+from ensta import Mobile
+
+mobile = Mobile(username, password)  # Or use email
+direct = mobile.direct()
+
+media_id = direct.fb_upload_image("image.jpg")
+
+direct.send_photo(media_id, thread_id)
+```
+
+</details>
+
+<details>
+
+<summary>Add Biography Link</summary>
+
+```python
+from ensta import Mobile
+
+mobile = Mobile(username, password)  # Or use email
+
+link_id = mobile.add_bio_link(
+    url="https://github.com/diezo",
+    title="Diezo's GitHub"
+)
+```
+
+</details>
+
+<details>
+
+<summary>Add Multiple Biography Links</summary>
+
+```python
+from ensta import Mobile
+from ensta.structures import BioLink
+
+mobile = Mobile(username, password)  # Or use email
+
+link_ids = mobile.add_bio_links([
+    BioLink(url="https://example.com", title="Link 1"),
+    BioLink(url="https://example.com", title="Link 2"),
+    BioLink(url="https://example.com", title="Link 3")
+])
+```
+
+</details>
+
+<details>
+
+<summary>Remove Biography Link</summary>
+
+```python
+from ensta import Mobile
+
+mobile = Mobile(username, password)  # Or use email
+
+mobile.remove_bio_link(link_id)
+```
+
+</details>
+
+<details>
+
+<summary>Remove Multiple Biography Links</summary>
+
+```python
+from ensta import Mobile
+
+mobile = Mobile(username, password)  # Or use email
+
+mobile.remove_bio_links([
+    link_id_1,
+    link_id_2,
+    link_id_3
+])
+```
+
+</details>
+
+<details>
+
+<summary>Clear All Biography Links</summary>
+
+```python
+from ensta import Mobile
+
+mobile = Mobile(username, password)  # Or use email
+
+mobile.clear_bio_links()
+```
+
+</details>
+
+### Deprecated Features (Web API)
+Features still using the **Web API**:
+
+<details>
+
+<summary>Upload Reel</summary><br>
+
+```python
+from ensta import Web
+
+host = Web(username, password)
+
+video_id = host.upload_video_for_reel("Video.mp4", thumbnail="Thumbnail.jpg")
+
+host.pub_reel(
+    video_id,
+    caption="Enjoying the winter! ⛄"
+)
+```
+
+</details>
+
+<details>
+
+<summary>Fetch Web Profile Data</summary><br>
+
+```python
+from ensta import Web
+
+host = Web(username, password)
 profile = host.profile("leomessi")
 
+print(profile.full_name)
 print(profile.biography)
+print(profile.follower_count)
 ```
 
 </details>
 
 <details>
+
+<summary>Fetch Someone's Feed</summary><br>
+
+```python
+from ensta import Web
+
+host = Web(username, password)
+posts = host.posts("leomessi", 100)  # Want full list? Set count to '0'
+
+for post in posts:
+    print(post.caption_text)
+    print(post.like_count)    
+```
+
+</details>
+
+<details>
+
+<summary>Fetch Post's Likers</summary><br>
+
+```python
+from ensta import Web
+
+host = Web(username, password)
+
+post_id = host.get_post_id("https://www.instagram.com/p/Czr2yLmroCQ/")
+likers = host.likers(post_id)
+
+for user in likers.users:
+    print(user.username)
+    print(user.profile_picture_url)
+```
+
+</details>
+
+They'll be migrated to the **Mobile API** soon.
+
+## Supported Classes
+
+> [!IMPORTANT]
+> The **Web Class** is deprecated and it's features are being migrated to the **Mobile Class**. It'll be removed from Ensta upon completion.
+
+<details>
+
+<br>
+
+<summary><b>Mobile Class</b> (Authenticated)</summary>
+
+Requires login, and has the most features.
+
+```python
+from ensta import Mobile
+
+mobile = Mobile(username, password)
+profile = mobile.profile("leomessi")
+
+print(profile.full_name)
+print(profile.biography)
+print(profile.profile_pic_url)
+```
+
+</details>
+
+<details>
+
+<br>
 
 <summary><b>Guest Class</b> (Non-Authenticated)</summary>
 
@@ -388,24 +595,35 @@ print(profile.biography)
 
 </details>
 
-[Learn to use ensta](https://github.com/diezo/Ensta/wiki/Getting-Started-With-Ensta)
+<details>
+
+<br>
+
+<summary><b>Web Class</b> (Authenticated) <i>(Deprecated)</i></summary>
+
+```python
+from ensta import Web
+
+host = Web(username, password)
+profile = host.profile("leomessi")
+
+print(profile.biography)
+```
+
+</details>
 
 ## Discord Community
 Ask questions, discuss upcoming features and meet other developers.
 
 [<img src="https://i.ibb.co/qdX7F1b/IMG-20240105-115646-modified-modified.png" width="150"/>](https://discord.com/invite/pU4knSwmQe)
 
-## Support Me
-If you wish to support my work, please consider visiting this link:
+## Buy Me A Coffee
+Support me in the development of this project.
 
-[<img style="margin-top: 10px" src="https://raw.githubusercontent.com/diezo/Ensta/master/assets/coffee.svg" width="160"/>](https://buymeacoffee.com/diezo)
+[<img src="https://raw.githubusercontent.com/diezo/Ensta/master/assets/coffee.svg" width="170"/>](https://buymeacoffee.com/sonii)
 
 ## Contributors
 [![Contributors](https://contrib.rocks/image?anon=1&repo=diezo/ensta&)](https://github.com/diezo/ensta/graphs/contributors)
 
-## Projects using Ensta
-- [**Margot Bot**](https://instagram.com/enstabott): An Instagram Bot that changes it's biography every day to reflect the current weekday. (IST Timezone)
-- [**Instagram REST API**](https://github.com/olgud/ensta-rest): A flask app that uses Ensta to deliver a third-party REST API for Instagram.
-
-## Legal
+## Disclaimer
 This is a third party library and not associated with Instagram. We're strictly against spam. You are liable for all the actions you take.

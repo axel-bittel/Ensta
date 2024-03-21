@@ -1,8 +1,11 @@
 from distutils.core import setup
 from pathlib import Path
 
-version = "5.1.3"
-long_description = (Path(__file__).parent / "README.md").read_text(encoding="utf-8")
+version = "5.2.9"
+long_description = (Path(__file__).parent / "README.md").read_text(encoding="utf-8").replace(
+    "[!IMPORTANT]",
+    "**Important:**"
+)
 
 setup(
     name="ensta",
@@ -48,9 +51,11 @@ setup(
     install_requires=[
         "requests",
         "moviepy",
+        "pillow",
         "cryptography",
         "pyotp",
-        "ntplib"
+        "ntplib",
+        "pyquery"
     ],
     classifiers=[
         "Development Status :: 5 - Production/Stable",
