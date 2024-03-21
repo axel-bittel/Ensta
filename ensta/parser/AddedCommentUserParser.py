@@ -1,4 +1,4 @@
-from ensta.structures.AddedCommentUser import AddedCommentUser
+from helper.Ensta.ensta.structures.AddedCommentUser import AddedCommentUser
 
 
 def parse_added_comment_user(information: dict) -> AddedCommentUser:

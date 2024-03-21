@@ -27,7 +27,7 @@ from .lib import (
     ConversionError
 )
 from PIL import Image
-from ensta.lib.Searcher import create_search_obj, search_comments
+from helper.Ensta.ensta.lib.Searcher import create_search_obj, search_comments
 from urllib.parse import urlparse, parse_qs
 from .Utils import time_id, fb_uploader
 from pyquery import PyQuery

@@ -20,7 +20,7 @@ from .structures import (
     BioLink, PrivateInfo
 )
 from .Direct import Direct
-from ensta.Utils import time_id, fb_uploader
+from helper.Ensta.ensta.Utils import time_id, fb_uploader
 
 
 class Mobile:

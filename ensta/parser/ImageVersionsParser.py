@@ -1,4 +1,4 @@
-from ensta.structures import ImageVersion
+from helper.Ensta.ensta.structures import ImageVersion
 
 
 def parse_image_versions(candidates: list[dict]) -> list[ImageVersion]:

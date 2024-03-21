@@ -1,4 +1,4 @@
-from ensta.structures import Caption
+from helper.Ensta.ensta.structures import Caption
 
 
 def parse_caption(information: dict) -> Caption:

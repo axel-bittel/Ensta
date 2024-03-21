@@ -1,5 +1,5 @@
-from ensta.structures.AddedComment import AddedComment
-from ensta.structures.AddedCommentUser import AddedCommentUser
+from helper.Ensta.ensta.structures.AddedComment import AddedComment
+from helper.Ensta.ensta.structures.AddedCommentUser import AddedCommentUser
 from .AddedCommentUserParser import parse_added_comment_user
 
 

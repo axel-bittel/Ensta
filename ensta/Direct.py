@@ -6,7 +6,7 @@ import random
 from .lib.Exceptions import FileTypeError, NetworkError
 from json import JSONDecodeError
 from pathlib import Path
-from ensta.Utils import fb_uploader
+from helper.Ensta.ensta.Utils import fb_uploader
 
 
 class Direct:

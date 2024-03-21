@@ -1,6 +1,6 @@
 from unittest import TestCase
 import time
-from ensta.Utils import time_id
+from helper.Ensta.ensta.Utils import time_id
 
 
 class TimeIdTest(TestCase):

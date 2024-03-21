@@ -1,5 +1,5 @@
-from ensta.structures.Followings import Followings
-from ensta.structures.Following import Following
+from helper.Ensta.ensta.structures.Followings import Followings
+from helper.Ensta.ensta.structures.Following import Following
 from .FollowingsListParser import parse_followings_list
 
 

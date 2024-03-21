@@ -1,4 +1,4 @@
-from ensta.structures.Follower import Follower
+from helper.Ensta.ensta.structures.Follower import Follower
 
 
 def parse_followers_list(items: list[dict]) -> list[Follower]:

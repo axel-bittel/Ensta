@@ -1,4 +1,4 @@
-from ensta.structures import UploadedSidecar, Caption, ImageVersion, CarouselMedia
+from helper.Ensta.ensta.structures import UploadedSidecar, Caption, ImageVersion, CarouselMedia
 from .CaptionParser import parse_caption
 from .ImageVersionsParser import parse_image_versions
 from .CarouselMediaParser import parse_carousel_media

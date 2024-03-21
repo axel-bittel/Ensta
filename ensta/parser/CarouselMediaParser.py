@@ -1,4 +1,4 @@
-from ensta.structures import CarouselMedia
+from helper.Ensta.ensta.structures import CarouselMedia
 from .ImageVersionsParser import parse_image_versions
 
 

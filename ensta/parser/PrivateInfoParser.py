@@ -1,4 +1,4 @@
-from ensta.structures.PrivateInfo import PrivateInfo
+from helper.Ensta.ensta.structures.PrivateInfo import PrivateInfo
 
 
 def parse_private_info(information: dict) -> PrivateInfo:

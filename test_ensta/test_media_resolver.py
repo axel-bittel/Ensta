@@ -1,7 +1,7 @@
 from unittest import TestCase
 import time
 from urllib.parse import urlparse
-from ensta.MediaResolver import MediaResolver
+from helper.Ensta.ensta.MediaResolver import MediaResolver
 from pathlib import Path
 from http.server import HTTPServer, SimpleHTTPRequestHandler
 from threading import Thread

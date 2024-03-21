@@ -1,4 +1,4 @@
-from ensta.structures import UploadedPhoto, Caption, ImageVersion
+from helper.Ensta.ensta.structures import UploadedPhoto, Caption, ImageVersion
 from .CaptionParser import parse_caption
 from .ImageVersionsParser import parse_image_versions
 
